@@ -1,0 +1,195 @@
+# Full-dashboard version of comparison.yaml, for a NEW empty dashboard.
+# Settings -> Dashboards -> Add dashboard -> open it -> pencil -> three dots -> Raw configuration editor.
+# Select all, delete, paste this whole file. Needs HACS apexcharts-card.
+#   1. Header : place, temperature now, plain-language outlook, confidence.
+#   2. Chart  : temperature. Thick red line = best estimate (all models
+#               combined). Thin grey lines = each individual weather model.
+#               The closer the grey lines are together, the more reliable.
+#   3. Chart  : chance of rain.
+#   4. Status : next rain, data freshness, typical forecast error, and which
+#               sources are on probation or measurably accurate.
+# Requires HACS "apexcharts-card" (tested against 2.2.3).
+# If a card says "Entity not found", check Settings -> Entities ("vanilai").
+title: Vanilai
+views:
+  - title: Weather
+    path: weather
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: >-
+              {% set l = state_attr('sensor.vanilai_summary', 'confidence_label') %}
+              {% set w = states('weather.vanilai_01m4w6d5056en2nq1tga0eqwd4_weather') %}
+              {% set words = {'sunny': 'Sunny', 'clear-night': 'Clear', 'partlycloudy': 'Partly cloudy',
+                'cloudy': 'Cloudy', 'fog': 'Foggy', 'rainy': 'Rainy', 'pouring': 'Heavy rain',
+                'snowy': 'Snowy', 'snowy-rainy': 'Sleet', 'lightning': 'Thunderstorms',
+                'lightning-rainy': 'Thunderstorms', 'hail': 'Hail', 'windy': 'Windy'} %}
+              ## 📍 {{ states('sensor.vanilai_location') }}
+
+              # {{ states('sensor.vanilai_fused_temperature') | float(0) | round(0) | int }}°C
+              &nbsp;{{ words.get(w, '') }}
+
+              {{ states('sensor.vanilai_summary') }}
+
+              {{ {'High': '🟢', 'Medium': '🟡', 'Low': '🔴'}.get(l, '⚪') }}
+              **Confidence: {{ l }}**
+              ({{ state_attr('sensor.vanilai_summary', 'confidence_score') }}%)
+              · combined from {{ states('sensor.vanilai_independent_sources') }} independent weather models
+
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Temperature, next 48 hours
+              show_states: false
+            graph_span: 48h
+            span:
+              start: hour
+            now:
+              show: true
+              label: Now
+            apex_config:
+              chart:
+                height: 280
+              legend:
+                show: false
+            yaxis:
+              - decimals: 0
+                apex_config:
+                  forceNiceScale: true
+                  title:
+                    text: "°C"
+            all_series_config:
+              type: line
+              stroke_width: 1
+              color: "#B0B6BD"
+              extend_to: false
+              show:
+                in_header: false
+            series:
+              - entity: sensor.vanilai_open_meteo_ecmwf_ifs025_temperature
+                name: ECMWF
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_open_meteo_gfs_seamless_temperature
+                name: GFS
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_open_meteo_icon_seamless_temperature
+                name: ICON
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_open_meteo_gem_seamless_temperature
+                name: GEM
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_open_meteo_jma_seamless_temperature
+                name: JMA
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_open_meteo_meteofrance_seamless_temperature
+                name: Météo-France
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_open_meteo_ukmo_seamless_temperature
+                name: Met Office
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_open_meteo_cma_grapes_global_temperature
+                name: CMA
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+              - entity: sensor.vanilai_fused_temperature
+                name: Best estimate
+                stroke_width: 4
+                color: "#E45756"
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.temperature]);
+
+          - type: markdown
+            content: >-
+              <font color="#E45756">**━ Red line**</font> is the best estimate, combining all models.
+              <font color="#8A9099">**━ Grey lines**</font> are the individual weather models;
+              the closer they sit together, the more you can trust the forecast.
+
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Chance of rain, next 48 hours
+              show_states: false
+            graph_span: 48h
+            span:
+              start: hour
+            now:
+              show: true
+              label: Now
+            apex_config:
+              chart:
+                height: 200
+              legend:
+                show: false
+            yaxis:
+              - min: 0
+                max: 100
+                decimals: 0
+                apex_config:
+                  tickAmount: 4
+                  title:
+                    text: "%"
+            series:
+              - entity: sensor.vanilai_fused_temperature
+                name: Chance of rain
+                unit: "%"
+                type: column
+                color: "#4C78A8"
+                extend_to: false
+                show:
+                  in_header: false
+                data_generator: |
+                  return entity.attributes.forecast.map(f => [new Date(f.datetime).getTime(), f.precipitation_probability]);
+
+          - type: markdown
+            title: Rain and data health
+            content: >-
+              {% set raw = states('sensor.vanilai_next_rain') %}
+              🌧️ **Next rain:**
+              {% if raw not in ('unknown', 'unavailable', 'none', '') %}
+              {% set t = as_local(as_datetime(raw)) %}
+              {% set mins = ((t - now()).total_seconds() / 60) | round(0) | int %}
+              {{ t.strftime('%a %d %b, %H:%M') }}
+              ({{ 'now' if mins <= 0 else 'in ' ~ mins ~ ' min' if mins < 90 else 'in ' ~ ((mins / 60) | round(1)) ~ ' h' }},
+              peak chance {{ state_attr('sensor.vanilai_next_rain', 'peak_probability_24h') }}%)
+              {% else %}
+              none expected in the next 24 h
+              {% endif %}
+
+              📡 **Data:** {{ states('sensor.vanilai_data_status') }}
+              · **Accuracy checks:** {{ states('sensor.vanilai_source_trust') }}
+
+              🎯 **Typical error (next 24 h):**
+              {% if is_number(states('sensor.vanilai_forecast_error')) %}
+              ±{{ states('sensor.vanilai_forecast_error') }}°C
+              {%- set imp = state_attr('sensor.vanilai_forecast_error', 'improvement_c') %}
+              {%- if imp is number %} · {{ 'better' if imp >= 0 else 'worse' }} than a plain average by {{ imp | abs }}°C{% endif %}
+              ({{ state_attr('sensor.vanilai_forecast_error', 'bias_correction') }} bias correction)
+              {% else %}
+              still learning, needs a day or two of observations
+              {% endif %}
+
+              ☔ **Rain forecast skill:**
+              {% if is_number(states('sensor.vanilai_rain_forecast_skill')) %}
+              {{ states('sensor.vanilai_rain_forecast_skill') }}% (0 = no better than guessing the usual rain frequency, 100 = perfect)
+              {% else %}
+              still learning, needs a few rainy hours to be observed
+              {% endif %}
+
+              {% set src = state_attr('sensor.vanilai_source_trust', 'sources') or {} %}
+              {% for name, s in src.items() if s.status != 'active' or s.typical_error_c is not none %}
+              - `{{ name }}` · {{ s.status }}{% if s.typical_error_c is not none %} · typically off by {{ s.typical_error_c }}°C{% endif %}
+              {% endfor %}
+
+          # Optional map of the forecast location. Uncomment to show it.
+          # - type: map
+          #   default_zoom: 10
+          #   entities:
+          #     - entity: sensor.vanilai_location

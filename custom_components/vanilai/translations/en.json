@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vanilai Weather Fusion",
+        "description": "Pick a person or device tracker to follow (for example your phone via the Companion app). Leave empty to use the Home Assistant home location.",
+        "data": {
+          "location_entity": "Tracked person / device",
+          "location_name": "Location name (optional, overrides the lookup)",
+          "extra_weather_entities": "Also fuse these weather entities (optional)",
+          "observation_entity": "Your outdoor temperature sensor (optional, for accuracy checking)",
+          "reverse_geocode": "Look up place name (OpenStreetMap)",
+          "move_threshold_km": "Refresh after moving (km)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Vanilai is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vanilai options",
+        "data": {
+          "location_entity": "Tracked person / device",
+          "location_name": "Location name (optional, overrides the lookup)",
+          "extra_weather_entities": "Also fuse these weather entities (optional)",
+          "observation_entity": "Your outdoor temperature sensor (optional, for accuracy checking)",
+          "reverse_geocode": "Look up place name (OpenStreetMap)",
+          "move_threshold_km": "Refresh after moving (km)"
+        }
+      }
+    }
+  }
+}

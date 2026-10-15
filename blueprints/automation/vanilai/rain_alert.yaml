@@ -1,0 +1,75 @@
+blueprint:
+  name: Vanilai rain alert
+  description: >-
+    Sends a notification shortly before Vanilai expects rain, including the
+    plain-language outlook. Uses the "Next rain" sensor, so it fires once per
+    rain event instead of repeating every hour.
+  domain: automation
+  input:
+    next_rain:
+      name: Next rain sensor
+      description: The Vanilai "Next rain" sensor.
+      selector:
+        entity:
+          domain: sensor
+          device_class: timestamp
+    summary:
+      name: Summary sensor
+      description: The Vanilai "Summary" sensor (used in the message).
+      selector:
+        entity:
+          domain: sensor
+    notify_service:
+      name: Notification service
+      description: >-
+        A notify action, e.g. notify.mobile_app_your_phone. Pick the one for
+        the phone you want alerted.
+      selector:
+        text:
+    lead_minutes:
+      name: Warn this many minutes before
+      default: 60
+      selector:
+        number:
+          min: 10
+          max: 240
+          unit_of_measurement: min
+    min_confidence:
+      name: Minimum confidence (%)
+      description: Skip the alert when the models disagree more than this allows.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+variables:
+  next_rain: !input next_rain
+  summary: !input summary
+  lead_minutes: !input lead_minutes
+  min_confidence: !input min_confidence
+
+trigger:
+  - platform: template
+    value_template: >-
+      {% set t = states(next_rain) | as_datetime %}
+      {{ t is not none and
+         0 < (t - now()).total_seconds() <= lead_minutes * 60 }}
+
+condition:
+  - condition: template
+    value_template: >-
+      {{ (state_attr(summary, 'confidence_score') | float(100)) >= min_confidence }}
+
+action:
+  - service: !input notify_service
+    data:
+      title: "Rain expected soon"
+      message: >-
+        {% set t = states(next_rain) | as_datetime | as_local %}
+        Rain from {{ t.strftime('%H:%M') }}.
+        {{ states(summary) }}
+
+mode: single
+max_exceeded: silent
